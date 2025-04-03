@@ -8,19 +8,34 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import FAISS
 import os
+from langchain_groq import ChatGroq
 
-st.title(" DocTalk- Interactive with document")
+st.title(" DocTalk- Interact with document")
 st.sidebar.header("Upload Document")
 uploaded_file = st.sidebar.file_uploader("Upload a PDF file", type=["pdf"])
 
-try:
-    # Get the Ollama URL from environment variable
-    ollama_url = os.environ.get("OLLAMA_URL")
-    if not ollama_url:
-        st.error("OLLAMA_URL environment variable not set. Please configure it in Streamlit Secrets.")
-        st.stop()
 
-    if uploaded_file:
+# Initialize Groq client
+api_key = os.getenv("GROQ_API_KEY")
+if not api_key:
+    st.error("❌ GROQ_API_KEY not found in .env file!")
+    st.stop()
+# Initialize LLM
+def initialize_llm():
+    return ChatGroq(
+        temperature=0.3,
+        model_name="llama-3.1-8b-instant",
+        groq_api_key=api_key,
+        max_tokens=2000,
+        top_p=0.9,
+        streaming=True
+    )
+
+llm = initialize_llm()
+
+
+
+if uploaded_file:
         with open("uploaded_document.pdf", "wb") as f:
             f.write(uploaded_file.getbuffer())
         st.sidebar.success("File uploaded successfully!")
@@ -35,7 +50,7 @@ try:
 
         # Embedding Setup
         # Use the embedded API key directly
-        API_KEY = st.secrets["GOOGLE_API_KEY"] # Access the API key from Streamlit secrets
+        API_KEY = 'AIzaSyA5Dv8GBGaqg_7MhmIIyxHj4qRkAG8s82E' # Access the API key from Streamlit secrets
 
         embeddings = GoogleGenerativeAIEmbeddings(
             model="models/embedding-001",
@@ -46,8 +61,7 @@ try:
         db = FAISS.from_documents(documents, embeddings)
         retriever = db.as_retriever()
 
-        # LLM Setup - Use the ollama_url
-        llm = Ollama(model="nemotron-mini", base_url=ollama_url)
+    
 
         # Chat Prompt Template
         prompt = ChatPromptTemplate.from_template(""" 
@@ -78,9 +92,6 @@ try:
                     st.write(response["answer"])
             else:
                 st.warning("Please enter a valid query.")
-    else:
+else:
         st.sidebar.info("Awaiting file upload.")
 
-except Exception as e:
-    st.error(f"An error occurred: {e}")
-    st.write(f"Error Details: {e}") # Optionally display error details for debugging.
